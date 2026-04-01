@@ -35,7 +35,7 @@ typedef int  long_par;
 #endif
 
 #ifdef SUPPORT_GRACKLE
-#include <grackle_float.h>
+#include <grackle.h>
 #if   defined GRACKLE_FLOAT_8
 typedef double real_che;
 #elif defined GRACKLE_FLOAT_4
@@ -494,6 +494,12 @@ const FixUpRestrict_t
    FIXUP_REST_NO  = 0,
    FIXUP_REST_YES = 1;
 
+typedef int FloorPassive_t;
+const FloorPassive_t
+   FLOOR_NULL = -1,
+   FLOOR_NO   =  0,
+   FLOOR_YES  =  1;
+
 typedef int NormPassive_t;
 const NormPassive_t
    NORMALIZE_NO  = 0,
@@ -562,6 +568,14 @@ typedef int LoadParaMode_t;
 const LoadParaMode_t
    LOAD_READPARA    = 1,
    LOAD_HDF5_OUTPUT = 2;
+
+
+// whether to enforce consistency of magnetic field at the patch interface
+typedef int SameInterfaceB_t;
+const SameInterfaceB_t
+   SAME_INTERFACE_B_DEFAULT = -1,
+   SAME_INTERFACE_B_NO      = 0,
+   SAME_INTERFACE_B_YES     = 1;
 
 
 // function pointers
