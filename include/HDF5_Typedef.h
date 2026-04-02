@@ -387,7 +387,7 @@ struct SymConst_t
 // Structure   :  InputPara_t
 // Description :  Data structure for outputting the run-time parameters
 //
-// Note        :  1. All run-time parameters are loaded from the files "Input__XXX"
+// Note        :  1. Most of the run-time parameters are loaded from the files "Input__XXX"
 //-------------------------------------------------------------------------------------------------------
 struct InputPara_t
 {
@@ -606,6 +606,8 @@ struct InputPara_t
    double ELBDM_Taylor3_Coeff;
    int    ELBDM_Taylor3_Auto;
    int    ELBDM_RemoveMotionCM;
+   int    ELBDM_RescaleMassError;
+   int    ELBDM_RescaleMassSteps;
    int    ELBDM_BaseSpectral;
 #  if ( ELBDM_SCHEME == ELBDM_HYBRID )
    int    ELBDM_FirstWaveLevel;
@@ -623,6 +625,7 @@ struct InputPara_t
    int    Opt__FixUp_Restrict;
    long   FixUpRestrict_Var;
    int    Opt__CorrAfterAllSync;
+   long   PassiveFloor_Var;
    int    Opt__NormalizePassive;
    int    NormalizePassive_NVar;
    int    NormalizePassive_VarIdx[NCOMP_PASSIVE];
