@@ -64,9 +64,7 @@ void Grackle_Init_FieldData()
    Che_FieldData->DII_density             = NULL;
    Che_FieldData->HDI_density             = NULL;
    Che_FieldData->metal_density           = NULL;
-// ============================================================
    Che_FieldData->dust_density            = NULL;
-// ============================================================
 
 
 // fields not supported yet
