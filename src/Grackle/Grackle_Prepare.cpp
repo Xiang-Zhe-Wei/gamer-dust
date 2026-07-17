@@ -28,13 +28,13 @@ extern int CheIdx_sHeatingRate;
 extern int CheIdx_tempFloor;
 
 // declare as static so that other functions cannot invoke it directly and must use the function pointer
-static real_che Grackle_vHeatingRate_User_Template( const double x, const double y, const double z, const double Time, const double n_H );
+static real_che Grackle_vHeatingRate_User_Template( const double x, const double y, const double z, const double Time, const double n_H, const real_che sEint_Gas  );
 static real_che Grackle_sHeatingRate_User_Template( const double x, const double y, const double z, const double Time );
 static real_che Grackle_tempFloor_Default( const double x, const double y, const double z, const double Time, const real_che Dens_Gas, const real_che sEint_Gas );
 
 
 // these function pointers must be set by a test problem initializer
-real_che (*Grackle_vHeatingRate_User_Ptr)( const double x, const double y, const double z, const double Time, const double n_H ) = NULL;
+real_che (*Grackle_vHeatingRate_User_Ptr)( const double x, const double y, const double z, const double Time, const double n_H, const real_che sEint_Gas ) = NULL;
 real_che (*Grackle_sHeatingRate_User_Ptr)( const double x, const double y, const double z, const double Time )                   = NULL;
 real_che (*Grackle_tempFloor_User_Ptr)( const double x, const double y, const double z, const double Time, const real_che Dens_Gas, const real_che sEint_Gas ) = Grackle_tempFloor_Default;
 
@@ -353,7 +353,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 //          user-provided array of volumetric heating rates
             if ( GRACKLE_USE_V_HEATING_RATE ) {
             const double n_H = Ptr_Dens[idx_pg] * UNIT_D * GRACKLE_HYDROGEN_MFRAC / Const_mH; // hydrogen number density in units of cm^-3
-            Ptr_vHeatingRate[idx_pg] = Grackle_vHeatingRate_User_Ptr( x0+i*dh, y0+j*dh, z0+k*dh, Time[lv], n_H );
+            Ptr_vHeatingRate[idx_pg] = Grackle_vHeatingRate_User_Ptr( x0+i*dh, y0+j*dh, z0+k*dh, Time[lv], n_H, Ptr_sEint[idx_pg] );
             }
 
 //          user-provided array of specific heating rates
@@ -436,7 +436,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 //
 // Return      :  volumetric_heating_rate
 //-------------------------------------------------------------------------------------------------------
-static real_che Grackle_vHeatingRate_User_Template( const double x, const double y, const double z, const double Time, const double n_H )
+static real_che Grackle_vHeatingRate_User_Template( const double x, const double y, const double z, const double Time, const double n_H, const real_che sEint_Gas )
 {
 
    const double   Center[3]                 = { amr->BoxCenter[0], amr->BoxCenter[1], amr->BoxCenter[2] };

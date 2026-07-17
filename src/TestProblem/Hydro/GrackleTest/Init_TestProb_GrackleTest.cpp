@@ -37,6 +37,16 @@ static grackle_field_data my_fields;
 static gr_float *my_cooling_time;
 // =======================================================================================
 
+static double GrackleTest_DustInit     =  -1.0;
+static double GrackleTest_DustTarget   =  -1.0;
+static double GrackleTest_DustStopFrac =   0.5;
+static bool   GrackleTest_DustInitSet  = false;
+static double GrackleTest_KCool = 1.0;
+
+static double GrackleTest_DustSatTol = 1.0e-3;   // stop if dust drops < 0.1% over one cooling time
+static double GrackleTest_DustSatMinTimeInCool = 0.5; // avoid stopping too early
+
+
 //-------------------------------------------------------------------------------------------------------
 // Function    :  Mis_GetTimeStep_Dust
 // Description :  Estimate the user-defined timestep from the cooling time of a
@@ -65,7 +75,37 @@ static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
    // metal
    my_fields.metal_density[0] = amr->patch[FluSg][0][0]->fluid[Idx_Metal][0][0][0];
    my_fields.dust_density[0]  = amr->patch[FluSg][0][0]->fluid[Idx_Dust][0][0][0];
-   my_fields.volumetric_heating_rate[0] = 0.0;
+
+   if ( !GrackleTest_DustInitSet )
+   {
+      GrackleTest_DustInit    = my_fields.dust_density[0];
+      // GrackleTest_DustTarget  = GrackleTest_DustStopFrac * GrackleTest_DustInit; // 50%
+      GrackleTest_DustInitSet = true;
+
+      if ( MPI_Rank == 0 )
+      {
+         Aux_Message( stdout, "Dust stopping criterion initialized:\n" );
+         Aux_Message( stdout, "  DustInit     = %.15E\n", GrackleTest_DustInit );
+         // Aux_Message( stdout, "  DustStopFrac = %.15E\n", GrackleTest_DustStopFrac );
+         // Aux_Message( stdout, "  DustTarget   = %.15E\n", GrackleTest_DustTarget );
+      }
+   }
+   // if ( my_fields.dust_density[0] <= GrackleTest_DustTarget )
+   // {
+   //    if ( MPI_Rank == 0 )
+   //    {
+   //       Aux_Message( stdout, "Dust density has reached %.2f percent of initial value.\n", 100.0*GrackleTest_DustStopFrac );
+   //       Aux_Message( stdout, "  Dust       = %.15E\n", my_fields.dust_density[0] );
+   //       Aux_Message( stdout, "  DustTarget = %.15E\n", GrackleTest_DustTarget );
+   //       Aux_Message( stdout, "  Stop simulation at Time = %.15E\n", Time[lv] );
+   //    }
+
+   //    END_T = Time[lv];
+   // }
+
+   const real_che rho_cgs = my_fields.density[0] * UNIT_D;
+   const real_che sEint_cgs = my_fields.internal_energy[0] * SQR( UNIT_V );
+   my_fields.volumetric_heating_rate[0] = - GrackleTest_KCool / UNIT_T * sEint_cgs * rho_cgs;
 
    Che_Units.density_units    = UNIT_D;
    Che_Units.length_units     = UNIT_L;
@@ -78,12 +118,81 @@ static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
      Aux_Error( ERROR_INFO, "Error in calculate_cooling_time.\n");
    }
 
-   double dTime_user = (0.1 * fabs(my_cooling_time[0])) * 1.0;
+   // Estimate gas temperature.
+   // const double Tgas = ( GAMMA - 1.0 ) * MOLECULAR_WEIGHT * Const_mH / Const_kB * sEint_cgs;
+   // const double MuEff = 0.6;
+   const double MuEff = 0.603877542851650;
+   const double Tgas = ( GAMMA - 1.0 ) * MuEff * Const_mH / Const_kB * sEint_cgs;
+
+   double cool_frac;
+
+   if ( Tgas > 3.0*1.0e5 )
+      cool_frac = 0.02;
+   else
+      cool_frac = 0.1;
+
+   double dTime_user = cool_frac * fabs( my_cooling_time[0] );
+
+
+   // // ============================================================
+   // // Stop when dust sputtering becomes saturated
+   // // ============================================================
+
+   // // sputtering timescale in seconds
+   // const double a_um  = 0.1;
+   // const double omega = 2.5;
+   // const double Gyr_in_s = 3.15569252e16;
+
+   // const double tsp_sec =
+   //    0.17 * ( a_um / 0.1 ) * ( 1.0e-27 / rho_cgs ) * ( pow( pow(10.0, 6.3) / Tgas, omega ) + 1.0 ) * Gyr_in_s;
+   // // effective dust decay timescale = tsp / 3, converted to code time unit
+   // const double tau_dust_code = ( tsp_sec / 3.0 ) / UNIT_T;
+   // // current cooling time from Grackle, in code time unit
+   // const double t_cool_code = fabs( my_cooling_time[0] );
+
+   // // // expected fractional dust drop over one cooling time
+   // // const double dust_drop_next_cool = 1.0 - exp( - t_cool_code / tau_dust_code );
+
+   // // Predict dust density after one cooling time
+   // const double dust_now  = my_fields.dust_density[0];
+   // const double dust_pred = dust_now * exp( - t_cool_code / tau_dust_code );
+
+   // // Predicted dust decrease normalized by initial dust density
+   // const double dust_drop_next_cool_norm0 = ( dust_now - dust_pred ) / GrackleTest_DustInit;
+
+   // // avoid stopping immediately at the beginning
+   // const bool after_min_time = Time[lv] > GrackleTest_DustSatMinTimeInCool * t_cool_code;
+
+   // if ( after_min_time && dust_drop_next_cool_norm0 < GrackleTest_DustSatTol )
+   // {
+   // if ( MPI_Rank == 0 )
+   // {
+   //    Aux_Message( stdout, "Dust sputtering is saturated.\n" );
+   //    Aux_Message( stdout, "  Time                    = %.15E\n", Time[lv] );
+   //    Aux_Message( stdout, "  Tgas                    = %.15E K\n", Tgas );
+   //    Aux_Message( stdout, "  tsp                     = %.15E code_time\n", tsp_sec/UNIT_T );
+   //    Aux_Message( stdout, "  tau_dust = tsp/3        = %.15E code_time\n", tau_dust_code );
+   //    Aux_Message( stdout, "  t_cool                  = %.15E code_time\n", t_cool_code );
+   //    Aux_Message( stdout, "  DustInit                = %.15E\n", GrackleTest_DustInit );
+   //    Aux_Message( stdout, "  Dust now                = %.15E\n", dust_now );
+   //    Aux_Message( stdout, "  Dust pred after t_cool  = %.15E\n", dust_pred );
+   //    Aux_Message( stdout, "  Dust drop / DustInit    = %.15E\n", dust_drop_next_cool_norm0 );
+   //    Aux_Message( stdout, "  Saturation tolerance    = %.15E\n", GrackleTest_DustSatTol );
+   //    Aux_Message( stdout, "  Stop simulation at Time = %.15E\n", Time[lv] );
+   // }
+
+   //    END_T = Time[lv];
+   //    // return 0.0;
+   // }
+
    if ( MPI_Rank == 0 )
    {
-       Aux_Message( stdout, "  cooling_time = %.15E,", fabs(my_cooling_time[0]) );
-       Aux_Message( stdout, "  dTime_user = %.15E\n", dTime_user );
+      Aux_Message( stdout, "  Tgas = %.15E,", Tgas );
+      Aux_Message( stdout, "  cool_frac = %.15E,", cool_frac );
+      Aux_Message( stdout, "  cooling_time = %.15E,", fabs(my_cooling_time[0]) );
+      Aux_Message( stdout, "  dTime_user = %.15E\n", dTime_user );
    }
+
    return dTime_user;
 
 } // FUNCTION : Mis_GetTimeStep_Dust
@@ -476,8 +585,12 @@ void SetParameter()
          Aux_Error( ERROR_INFO, "GRACKLE_PE_HEATING must be 0 for GrackleTest_DefaultTestMode = %d !!\n",
                     GrackleTest_DefaultTestMode );
       
-      GrackleTest_MassDensity_Min = 1.0e-1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
-      GrackleTest_MassDensity_Max = 1.0e-1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      GrackleTest_MassDensity_Min = 1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      GrackleTest_MassDensity_Max = 1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      // GrackleTest_MassDensity_Min = 1.0e-1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      // GrackleTest_MassDensity_Max = 1.0e-1*( Const_amu / CUBE(Const_cm) );   PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      // GrackleTest_MassDensity_Min = 1.0e-28;
+      // GrackleTest_MassDensity_Max = 1.0e-28;
       GrackleTest_TempOverMMW_Min = 1.0e+06/MOLECULAR_WEIGHT;                PRINT_RESET_PARA( GrackleTest_TempOverMMW_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_TempOverMMW_Max = 1.0e+06/MOLECULAR_WEIGHT;                PRINT_RESET_PARA( GrackleTest_TempOverMMW_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_MFrac_Metal     = 1.295e-3;  PRINT_RESET_PARA( GrackleTest_MFrac_Metal,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
@@ -531,7 +644,7 @@ void SetParameter()
    // const long   End_Step_Default = 10;                     // 10 * DT__GRACKLE_COOLING * cooling time
    const long   End_Step_Default = __INT_MAX__;
    // const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
-   const double End_T_Default    = 20.0*Const_Myr/UNIT_T;  // 10 Myr
+   const double End_T_Default    = 2.656266 *Const_Myr/UNIT_T;  // 10 Myr
 
    if ( END_STEP < 0 ) {
       END_STEP = End_Step_Default;
@@ -755,8 +868,19 @@ void AddNewField_GrackleTest()
 //
 // Return      :  volumetric_heating_rate
 //-------------------------------------------------------------------------------------------------------
-real_che Grackle_vHeatingRate_GrackleTest( const double x, const double y, const double z, const double Time, const double n_H )
+real_che Grackle_vHeatingRate_GrackleTest( const double x, const double y, const double z, const double Time, const double n_H, const real_che sEint_Gas )
 {
+   if ( GrackleTest_DefaultTestMode == 5 )
+   {
+      // return 0;
+      const real_che rho_cgs = n_H * Const_mH / GRACKLE_HYDROGEN_MFRAC; // n_H is in cm^-3 ,rho_cgs is in g cm^-3
+      const real_che sEint_cgs = sEint_Gas * SQR( UNIT_V ); // sEint_Gas is in code unit, sEint_cgs is in erg g^-1
+
+      // Equivalent to edot_code = - GrackleTest_KCool * e_code * d_code
+      const real_che volumetric_heating_rate = - GrackleTest_KCool / UNIT_T * sEint_cgs * rho_cgs;
+      return volumetric_heating_rate;
+   }
+
    const double   volumetric_heating_rate_0 =       n_H * GrackleTest_HeatingRate; // GrackleTest_HeatingRate has units of erg cm^-3 s^-1 n_H^-1
    const double   volumetric_cooling_rate_0 = n_H * n_H * GrackleTest_CoolingRate; // GrackleTest_CoolingRate has units of erg cm^-3 s^-1 n_H^-2
 
