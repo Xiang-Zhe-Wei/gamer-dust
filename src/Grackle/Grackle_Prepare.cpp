@@ -348,8 +348,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 
 //          use dust density field
             if ( GRACKLE_DUST )
-            Ptr_Dust[idx_pg] = *( fluid[Idx_Dust][0][0] + idx_p );
-
+            Ptr_Dust[idx_pg] = *( fluid[Idx_Dust][0][0] + idx_p ) * Ratio_FloorDens;
 //          user-provided array of volumetric heating rates
             if ( GRACKLE_USE_V_HEATING_RATE ) {
             const double n_H = Ptr_Dens[idx_pg] * UNIT_D * GRACKLE_HYDROGEN_MFRAC / Const_mH; // hydrogen number density in units of cm^-3

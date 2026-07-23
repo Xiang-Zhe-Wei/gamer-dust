@@ -34,7 +34,7 @@ file_list = sorted(glob.glob(os.path.join(PREFIX, "Data_*")))
 
 for file_path in file_list:
     with h5py.File(file_path, "r") as f:
-        UNIT_D = f["Info"]["InputPara"]["Unit_D"]
+        UNIT_D = float(f["Info"]["InputPara"]["Unit_D"][()])
 
         density = (
             f["GridData"]["Metal"][0][0][0][0]

@@ -280,7 +280,7 @@ void LoadInputTestProb( const LoadParaMode_t load_mode, ReadPara_t *ReadPara, HD
    LOAD_PARA( load_mode, "GrackleTest_MFrac_DI",        &GrackleTest_MFrac_DI,              0.0,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_DII",       &GrackleTest_MFrac_DII,             0.0,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_HDI",       &GrackleTest_MFrac_HDI,             0.0,           0.0,              1.0               );
-   LOAD_PARA( load_mode, "GrackleTest_DustToGasRatio",  &GrackleTest_DustToGasRatio,        0.0,           0.0,              1.0               );
+   LOAD_PARA( load_mode, "GrackleTest_DustToGasRatio",  &GrackleTest_DustToGasRatio,        0.1,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_HeatingRate",     &GrackleTest_HeatingRate,           0.0,           0.0,              NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_CoolingRate",     &GrackleTest_CoolingRate,           0.0,           0.0,              NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_KCool",           &GrackleTest_KCool,                 1.0,           0.0,              NoMax_double      );
@@ -547,7 +547,7 @@ void SetParameter()
 // (3) reset other general-purpose parameters
 //     --> a helper macro PRINT_RESET_PARA is defined in Macro.h
    // const long   End_Step_Default = 10;                     // 10 * DT__GRACKLE_COOLING * cooling time
-   const long   End_Step_Default = __INT_MAX__;
+   const long   End_Step_Default = __LONG_MAX__;
    const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
 
    if ( END_STEP < 0 ) {
