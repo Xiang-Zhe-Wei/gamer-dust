@@ -110,7 +110,6 @@ void Grackle_Close( const int lv, const int SaveSg, const real_che h_Che_Array[]
       Ptr_Metal = Ptr_Metal0 + offset;
       Ptr_Dust  = Ptr_Dust0  + offset;
 
-
       for (int LocalID=0; LocalID<8; LocalID++)
       {
          PID   = PID0 + LocalID;
@@ -173,9 +172,9 @@ void Grackle_Close( const int lv, const int SaveSg, const real_che h_Che_Array[]
             *( fluid[Idx_HDI  ][0][0] + idx_p ) = Ptr_HDI  [idx_pg] * DensRatio_FluChe;
             }
 
+//          Grackle doesn't evolve the metal density, copy it only for consistency with the dust fields.
             if ( GRACKLE_METAL )
             *( fluid[Idx_Metal][0][0] + idx_p ) = Ptr_Metal[idx_pg] * DensRatio_FluChe;
-            
             if ( GRACKLE_DUST )
             *( fluid[Idx_Dust ][0][0] + idx_p ) = Ptr_Dust [idx_pg] * DensRatio_FluChe;
 

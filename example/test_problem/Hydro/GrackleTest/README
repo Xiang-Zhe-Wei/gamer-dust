@@ -106,13 +106,8 @@ Note:
         diagram for the given Grackle parameters, which can be compared with the simulation results
       --> To test the redshift-dependent UV background in non-comoving grids
    - 5:
-      - The density is uniformly 1.0 amu cm^-3 as default
-      - The T/mu is uniformly 1.0e6 K / MOLECULAR_WEIGHT
-      - During compilation, one must set `NCOMP_PASSIVE_USER = 14` (`--passive 14` in `generate_make.sh`)
-        chemical species, one metal field, and one dust field
-      - `GRACKLE_METAL`, `GRACKLE_DUST`, `GRACKLE_USE_V_HEATING_RATE`, `OPT__DT_USER` should be 1
-      - `GRACKLE_PRIMORDIAL`, `GRACKLE_UV`, `GRACKLE_CMB_FLOOR`, and `GRACKLE_PE_HEATING` should all be 0
-      - `GRACKLE_COOLING` should be 1
+      - This dust sputtering support requires the Grackle repo/branch below:
+        --> https://github.com/Xiang-Zhe-Wei/grackle-dust/tree/dust_sputtering
       - `GRACKLE_CLOUDY_TABLE` should be `CloudyData_UVB=HM2012_mu06_noCooling.h5`
       - `GrackleTest_KCool` in `Input__TestProb` specifies the internal energy decay coefficient
 
@@ -143,7 +138,7 @@ Note:
    - The default table `CloudyData_UVB=HM2012.h5` can be downloaded by `sh download_CloudyData_UVB.sh`
    
 12. Dust sputtering table and time-step setup
-   - `make_no_cooling_table.py` generates `CloudyData_UVB=HM2012_mu06_noCooling.h5`, which fixes
+   - `make_no_cooling_table.py` generates `CloudyData_NoCooling_mu06.h5`, which fixes
      the mean molecular weight to 0.6 and disables native Grackle cooling,
      allowing independent energy evolution through volumetric heating.
    - Set `OPT__OUTPUT_MODE`, `OUTPUT_STEP`, and `OPT__DT_USER` to 1.

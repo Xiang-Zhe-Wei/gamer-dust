@@ -6,7 +6,7 @@ import numpy as np
 
 
 src = "CloudyData_UVB=HM2012.h5"
-dst = "CloudyData_UVB=HM2012_mu06_noCooling.h5"
+dst = "CloudyData_NoCooling_mu06.h5"
 
 mmw_dataset = "CoolingRates/Primordial/MMW"
 thermal_datasets = [

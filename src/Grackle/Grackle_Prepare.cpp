@@ -27,6 +27,7 @@ extern int CheIdx_vHeatingRate;
 extern int CheIdx_sHeatingRate;
 extern int CheIdx_tempFloor;
 
+
 // declare as static so that other functions cannot invoke it directly and must use the function pointer
 static real_che Grackle_vHeatingRate_User_Template( const double x, const double y, const double z, const double Time, const double n_H, const real_che sEint_Gas  );
 static real_che Grackle_sHeatingRate_User_Template( const double x, const double y, const double z, const double Time );
@@ -349,6 +350,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 //          use dust density field
             if ( GRACKLE_DUST )
             Ptr_Dust[idx_pg] = *( fluid[Idx_Dust][0][0] + idx_p ) * Ratio_FloorDens;
+
 //          user-provided array of volumetric heating rates
             if ( GRACKLE_USE_V_HEATING_RATE ) {
             const double n_H = Ptr_Dens[idx_pg] * UNIT_D * GRACKLE_HYDROGEN_MFRAC / Const_mH; // hydrogen number density in units of cm^-3
@@ -432,6 +434,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 // Parameter   :  x/y/z : Target physical coordinates
 //                Time  : Target physical time
 //                n_H   : Hydrogen number density in units of cm^-3
+//                sEint_Gas : Gas specific internal energy
 //
 // Return      :  volumetric_heating_rate
 //-------------------------------------------------------------------------------------------------------

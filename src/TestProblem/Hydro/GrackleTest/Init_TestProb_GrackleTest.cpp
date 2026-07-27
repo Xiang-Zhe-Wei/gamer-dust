@@ -34,9 +34,6 @@ static double GrackleTest_logTemp_Min;        // Minimum log( temperature ) in t
 static double GrackleTest_logTemp_Max;        // Maximum log( temperature ) in the box
 static double GrackleTest_logTemp_Range;      // Range of log ( temperature )
 
-static grackle_field_data my_fields;
-static gr_float *my_cooling_time;
-
 
 
 //-------------------------------------------------------------------------------------------------------
@@ -57,91 +54,24 @@ static gr_float *my_cooling_time;
 //-------------------------------------------------------------------------------------------------------
 static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
 {
+   const double dt_grackle = Grackle_GetTimeStep_CoolingTime( lv );
+
    int FluSg = amr->FluSg[0];
    double Dens = amr->patch[FluSg][0][0]->fluid[DENS][0][0][0];
    double Eint = amr->patch[FluSg][0][0]->fluid[ENGY][0][0][0];
 
-   my_fields.density[0] = Dens;
-   my_fields.internal_energy[0] = Eint / Dens;
-
-   // metal
-   my_fields.metal_density[0] = amr->patch[FluSg][0][0]->fluid[Idx_Metal][0][0][0];
-   my_fields.dust_density[0]  = amr->patch[FluSg][0][0]->fluid[Idx_Dust][0][0][0];
-
-   const real_che rho_cgs = my_fields.density[0] * UNIT_D;
-   const real_che sEint_cgs = my_fields.internal_energy[0] * SQR( UNIT_V );
-   my_fields.volumetric_heating_rate[0] = - GrackleTest_KCool / UNIT_T * sEint_cgs * rho_cgs;
-
-   Che_Units.density_units    = UNIT_D;
-   Che_Units.length_units     = UNIT_L;
-   Che_Units.time_units       = UNIT_T;
-   Che_Units.velocity_units   = UNIT_V;
-
-   // Calculate cooling time.
-   if (calculate_cooling_time(&Che_Units, &my_fields, my_cooling_time) == 0)
-   {
-     Aux_Error( ERROR_INFO, "Error in calculate_cooling_time.\n");
-   }
-
    // Estimate gas temperature.
+   const double sEint_cgs = Eint/Dens * SQR( UNIT_V );
    const double MuEff = 0.6;
    const double Tgas = ( GAMMA - 1.0 ) * MuEff * Const_mH / Const_kB * sEint_cgs;
 
-   double cool_frac;
+   const double cool_frac = ( Tgas > 3.0e5 ) ? 0.02 : 0.1;
+   const double cooling_time = dt_grackle / DT__GRACKLE_COOLING;
 
-   if ( Tgas > 3.0*1.0e5 )
-      cool_frac = 0.02;
-   else
-      cool_frac = 0.1;
-
-   double dTime_user = cool_frac * fabs( my_cooling_time[0] );
-
-
-   if ( MPI_Rank == 0 )
-   {
-      Aux_Message( stdout, "  Tgas = %.15E,", Tgas );
-      Aux_Message( stdout, "  cool_frac = %.15E,", cool_frac );
-      Aux_Message( stdout, "  cooling_time = %.15E,", fabs(my_cooling_time[0]) );
-      Aux_Message( stdout, "  dTime_user = %.15E\n", dTime_user );
-   }
-
-   return dTime_user;
+   return cool_frac * cooling_time;
 
 } // FUNCTION : Mis_GetTimeStep_Dust
 
-
-//-------------------------------------------------------------------------------------------------------
-// Function    :  End_GrackleDust
-// Description :  Free memory before terminating the program
-//
-// Note        :  1. Linked to the function pointer "End_User_Ptr" to replace "End_User()"
-//
-// Parameter   :  None
-//-------------------------------------------------------------------------------------------------------
-static  void End_GrackleDust()
-{
-   delete [] my_fields.grid_dimension;
-   delete [] my_fields.grid_start;
-   delete [] my_fields.grid_end;
-   delete [] my_cooling_time;
-
-   my_fields.grid_dimension = NULL;
-   my_fields.grid_start = NULL;
-   my_fields.grid_end = NULL;
-
-   delete [] my_fields.density         ;
-   delete [] my_fields.internal_energy ;
-   delete [] my_fields.metal_density   ;
-   delete [] my_fields.dust_density    ;
-   delete [] my_fields.volumetric_heating_rate;
-
-   my_fields.density         = NULL;
-   my_fields.internal_energy = NULL;
-   my_fields.metal_density   = NULL;
-   my_fields.dust_density    = NULL;
-   my_fields.volumetric_heating_rate = NULL;
-   my_cooling_time = NULL;
-} // FUNCTION : End_GrackleDust
 
 
 //-------------------------------------------------------------------------------------------------------
@@ -267,7 +197,7 @@ void LoadInputTestProb( const LoadParaMode_t load_mode, ReadPara_t *ReadPara, HD
    LOAD_PARA( load_mode, "GrackleTest_MassDensity_Max", &GrackleTest_MassDensity_Max,       1.0e-21,       Eps_double,       NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_TempOverMMW_Min", &GrackleTest_TempOverMMW_Min,       1.0e+00,       Eps_double,       NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_TempOverMMW_Max", &GrackleTest_TempOverMMW_Max,       1.0e+08,       Eps_double,       NoMax_double      );
-   LOAD_PARA( load_mode, "GrackleTest_MFrac_Metal",     &GrackleTest_MFrac_Metal,           0.01295,       0.0,              1.0               );
+   LOAD_PARA( load_mode, "GrackleTest_MFrac_Metal",     &GrackleTest_MFrac_Metal,           1.295e-2,      0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_e",         &GrackleTest_MFrac_e,               0.0,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_HI",        &GrackleTest_MFrac_HI,              0.750158,      0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_HII",       &GrackleTest_MFrac_HII,             0.0,           0.0,              1.0               );
@@ -280,7 +210,7 @@ void LoadInputTestProb( const LoadParaMode_t load_mode, ReadPara_t *ReadPara, HD
    LOAD_PARA( load_mode, "GrackleTest_MFrac_DI",        &GrackleTest_MFrac_DI,              0.0,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_DII",       &GrackleTest_MFrac_DII,             0.0,           0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_MFrac_HDI",       &GrackleTest_MFrac_HDI,             0.0,           0.0,              1.0               );
-   LOAD_PARA( load_mode, "GrackleTest_DustToGasRatio",  &GrackleTest_DustToGasRatio,        0.1,           0.0,              1.0               );
+   LOAD_PARA( load_mode, "GrackleTest_DustToGasRatio",  &GrackleTest_DustToGasRatio,        0.01,          0.0,              1.0               );
    LOAD_PARA( load_mode, "GrackleTest_HeatingRate",     &GrackleTest_HeatingRate,           0.0,           0.0,              NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_CoolingRate",     &GrackleTest_CoolingRate,           0.0,           0.0,              NoMax_double      );
    LOAD_PARA( load_mode, "GrackleTest_KCool",           &GrackleTest_KCool,                 1.0,           0.0,              NoMax_double      );
@@ -327,6 +257,7 @@ void SetParameter()
    {
       GrackleTest_MFrac_Metal = 0.0;   PRINT_RESET_PARA( GrackleTest_MFrac_Metal, FORMAT_REAL, "for GRACKLE_METAL disabled" );
    }
+
    if ( !GRACKLE_DUST )
    {
       GrackleTest_DustToGasRatio = 0.0;PRINT_RESET_PARA( GrackleTest_DustToGasRatio, FORMAT_REAL, "for GRACKLE_DUST disabled" );
@@ -498,8 +429,8 @@ void SetParameter()
       GrackleTest_MassDensity_Max = 1*( Const_amu / CUBE(Const_cm) );  PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_TempOverMMW_Min = 1.0e+06/MOLECULAR_WEIGHT;          PRINT_RESET_PARA( GrackleTest_TempOverMMW_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_TempOverMMW_Max = 1.0e+06/MOLECULAR_WEIGHT;          PRINT_RESET_PARA( GrackleTest_TempOverMMW_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
-      GrackleTest_MFrac_Metal     = 1.295e-3;                          PRINT_RESET_PARA( GrackleTest_MFrac_Metal,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
-      GrackleTest_DustToGasRatio  = 0.1;                               PRINT_RESET_PARA( GrackleTest_DustToGasRatio,  FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      GrackleTest_MFrac_Metal     = 1.295e-2;                          PRINT_RESET_PARA( GrackleTest_MFrac_Metal,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
+      GrackleTest_DustToGasRatio  = 0.01;                              PRINT_RESET_PARA( GrackleTest_DustToGasRatio,  FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_HeatingRate     = 0;                                 PRINT_RESET_PARA( GrackleTest_HeatingRate,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_CoolingRate     = 0;                                 PRINT_RESET_PARA( GrackleTest_CoolingRate,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
    }
@@ -546,9 +477,9 @@ void SetParameter()
 
 // (3) reset other general-purpose parameters
 //     --> a helper macro PRINT_RESET_PARA is defined in Macro.h
-   // const long   End_Step_Default = 10;                     // 10 * DT__GRACKLE_COOLING * cooling time
-   const long   End_Step_Default = __LONG_MAX__;
-   const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
+   const long   End_Step_Default = 1000000;                     // 10 * DT__GRACKLE_COOLING * cooling time
+   // const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
+   const double End_T_Default    = 2.656266*Const_Myr/UNIT_T;  // 10 Myr
 
    if ( END_STEP < 0 ) {
       END_STEP = End_Step_Default;
@@ -560,6 +491,8 @@ void SetParameter()
       PRINT_RESET_PARA( END_T, FORMAT_REAL, "" );
    }
 
+   if ( END_STEP != 0  &&  END_T != 0.0  &&  !GRACKLE_COOLING )
+      Aux_Error( ERROR_INFO, "GRACKLE_COOLING must be enabled for time evolution (END_STEP = %ld, END_T = %14.7e) in this test !!\n", END_STEP, END_T );
 
 // (4) make a note
    if ( MPI_Rank == 0 )
@@ -732,7 +665,7 @@ void AddNewField_GrackleTest()
 //     in Init/Init_Field.cpp
 // --> also note that "Idx_*" has been predefined in Field.h
 // --> the purpose of adding these fields here when they were not added in Init/Init_Field.cpp is to
-//     fix the total number of passive fields (NCOMP_PASSIVE) to 14, regardless of GRACKLE_PRIMORDIAL and GRACKLE_METAL
+//     fix the total number of passive fields (NCOMP_PASSIVE) to 14, regardless of GRACKLE_PRIMORDIAL, GRACKLE_METAL, and GRACKLE_DUST
    if ( Idx_e     == Idx_Undefined )   Idx_e     = AddField( "Electron", FIXUP_FLUX_YES, FIXUP_REST_YES, FLOOR_YES, NORMALIZE_YES, INTERP_FRAC_YES );
    if ( Idx_HI    == Idx_Undefined )   Idx_HI    = AddField( "HI",       FIXUP_FLUX_YES, FIXUP_REST_YES, FLOOR_YES, NORMALIZE_YES, INTERP_FRAC_YES );
    if ( Idx_HII   == Idx_Undefined )   Idx_HII   = AddField( "HII",      FIXUP_FLUX_YES, FIXUP_REST_YES, FLOOR_YES, NORMALIZE_YES, INTERP_FRAC_YES );
@@ -765,6 +698,7 @@ void AddNewField_GrackleTest()
 // Parameter   :  x/y/z : Target physical coordinates
 //                Time  : Target physical time
 //                n_H   : Hydrogen number density in units of cm^-3
+//                sEint_Gas : Gas specific internal energy
 //
 // Return      :  volumetric_heating_rate
 //-------------------------------------------------------------------------------------------------------
@@ -872,34 +806,7 @@ void Init_TestProb_Hydro_GrackleTest()
 
    if ( GrackleTest_DefaultTestMode == 5 )
    {
-      const int field_size = 1;
-
-      my_fields.grid_rank = 3;
-      my_fields.grid_dimension = new int[3];
-      my_fields.grid_start     = new int[3];
-      my_fields.grid_end       = new int[3];
-
-      for (int i=0; i<3; i++)
-      {
-         my_fields.grid_dimension[i] = 1;
-         my_fields.grid_start[i]     = 0;
-         my_fields.grid_end[i]       = 0;
-      }
-
-      my_fields.grid_dimension[0] = field_size;
-      my_fields.grid_end[0]       = field_size - 1;
-      my_fields.grid_dx           = 0.0;
-
-      my_fields.density         = new gr_float[field_size];
-      my_fields.internal_energy = new gr_float[field_size];
-      my_fields.metal_density   = new gr_float[field_size];
-      my_fields.dust_density = new gr_float[field_size];
-      my_fields.volumetric_heating_rate = new gr_float[field_size];
-
-      my_cooling_time = new gr_float[field_size];
-
       Mis_GetTimeStep_User_Ptr = Mis_GetTimeStep_Dust;
-      End_User_Ptr             = End_GrackleDust;
    }
 
 #  ifdef SUPPORT_HDF5
