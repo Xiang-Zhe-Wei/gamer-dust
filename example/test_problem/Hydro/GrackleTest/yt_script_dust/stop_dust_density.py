@@ -49,7 +49,7 @@ OMEGA = 2.5
 # User settings
 # ============================================================
 
-DUST_TO_GAS = 0.1
+DUST_TO_GAS = 0.01
 GAS_RHO0_AMU_LIST = [0.01, 0.1, 1.0]
 K_MYR_INV = 1.0
 N_COOLING_TIME = 5.0

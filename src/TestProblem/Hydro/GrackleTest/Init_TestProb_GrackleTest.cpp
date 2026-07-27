@@ -477,9 +477,8 @@ void SetParameter()
 
 // (3) reset other general-purpose parameters
 //     --> a helper macro PRINT_RESET_PARA is defined in Macro.h
-   const long   End_Step_Default = 1000000;                     // 10 * DT__GRACKLE_COOLING * cooling time
-   // const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
-   const double End_T_Default    = 2.656266*Const_Myr/UNIT_T;  // 10 Myr
+   const long   End_Step_Default = 10;                     // 10 * DT__GRACKLE_COOLING * cooling time
+   const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
 
    if ( END_STEP < 0 ) {
       END_STEP = End_Step_Default;

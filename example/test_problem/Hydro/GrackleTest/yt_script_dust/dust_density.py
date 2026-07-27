@@ -26,7 +26,7 @@ OMEGA = 2.5
 MU    = 0.6
 
 # initial conditions
-DUST_TO_GAS = 0.1
+DUST_TO_GAS = 0.01
 
 # Choose ONE density setting:
 
