@@ -108,7 +108,9 @@ Note:
    - 5:
       - This dust sputtering support requires the Grackle repo/branch below:
         --> https://github.com/Xiang-Zhe-Wei/grackle-dust/tree/dust_sputtering
-      - `GRACKLE_CLOUDY_TABLE` should be `CloudyData_UVB=HM2012_mu06_noCooling.h5`
+      - `GRACKLE_PRIMORDIAL`, `GRACKLE_UV`, `GRACKLE_CMB_FLOOR`, `GRACKLE_PE_HEATING` should all be 0
+      - `GRACKLE_DUST`, `GRACKLE_USE_V_HEATING_RATE` should both be 1
+      - `GRACKLE_CLOUDY_TABLE` should be `CloudyData_NoCooling_mu06.h5`
       - `GrackleTest_KCool` in `Input__TestProb` specifies the internal energy decay coefficient
 
 6. The evolution of fluid
@@ -136,14 +138,13 @@ Note:
 11. CloudyData_UVB table
    - Source: https://github.com/grackle-project/grackle_data_files/tree/main/input
    - The default table `CloudyData_UVB=HM2012.h5` can be downloaded by `sh download_CloudyData_UVB.sh`
-   
+
 12. Dust sputtering table and time-step setup
    - `make_no_cooling_table.py` generates `CloudyData_NoCooling_mu06.h5`, which fixes
      the mean molecular weight to 0.6 and disables native Grackle cooling,
      allowing independent energy evolution through volumetric heating.
    - Set `OPT__OUTPUT_MODE`, `OUTPUT_STEP`, and `OPT__DT_USER` to 1.
-   - The global time step is determined by `Mis_GetTimeStep_Dust()` in
-     `gamer/src/TestProblem/Hydro/GrackleTest/Init_TestProb_GrackleTest.cpp`.
+   - The global time step is determined by `Mis_GetTimeStep_Dust()`
    - It is limited to 2% of the absolute cooling time above 3.0e5 K and 10% at lower temperatures.
    - Grackle applies the same temperature-dependent limit to its internal subcycles.
 
@@ -157,7 +158,6 @@ Note:
    - The script reports the corresponding stopping time `t` in Myr.
    (3) This choice directly affects the theoretical comparison curve, so please confirm the
      Grackle `edot` setting before running these scripts.
-      --> Use grackle-dust branch `dust_sputtering` for edot_0 or edot_const reference solution.
      For `dust_density.py` and `gas_temp.py`, the reference solution depends on how Grackle
      defines the energy change rate `edot(t)`:
    - If `edot(i) = 0`, the script will use the reference solution **edot_0**.

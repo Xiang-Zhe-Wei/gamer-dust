@@ -44,15 +44,8 @@ if not os.path.isfile(src):
 shutil.copy2(src, dst)
 
 with h5py.File(dst, "r+") as f:
-    if mmw_dataset not in f:
-        raise RuntimeError(f"Dataset not found: {mmw_dataset}")
-
-    mmw = f[mmw_dataset]
-
     print("\n========== MMW / mu ==========")
-    print_range("mu before", mmw[...])
-    mmw[...] = 0.6
-    print_range("mu after", mmw[...])
+    set_dataset_value(f, mmw_dataset, 0.6)
 
     print("\n======= Cooling/Heating =======")
     for dataset_name in thermal_datasets:

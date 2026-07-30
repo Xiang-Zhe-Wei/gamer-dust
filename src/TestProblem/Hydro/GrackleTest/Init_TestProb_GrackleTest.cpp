@@ -9,7 +9,6 @@ static double GrackleTest_MassDensity_Min;    // Minimum total mass density in t
 static double GrackleTest_MassDensity_Max;    // Maximum total mass density in the box (in g cm^-3) [1.0e-21]
 static double GrackleTest_TempOverMMW_Min;    // Minimum temperature over mean molecular weight (T/mu) in the box (in K) [1.0e+00]
 static double GrackleTest_TempOverMMW_Max;    // Maximum temperature over mean molecular weight (T/mu) in the box (in K) [1.0e+08]
-static double GrackleTest_DustToGasRatio;     // Dust-to-gas mass ratio (GRACKLE_DUST only)            [0.01]
 static double GrackleTest_MFrac_Metal;        // Metal mass fraction    (GRACKLE_METAL only)           [1.295e-2]
 static double GrackleTest_MFrac_e;            // Electron mass fraction (GRACKLE_PRIMORDIAL >= 1 only) [0.0]
 static double GrackleTest_MFrac_HI;           // HI mass fraction       (GRACKLE_PRIMORDIAL >= 1 only) [0.750158]
@@ -23,6 +22,7 @@ static double GrackleTest_MFrac_H2II;         // H2II mass fraction     (GRACKLE
 static double GrackleTest_MFrac_DI;           // DI mass fraction       (GRACKLE_PRIMORDIAL >= 3 only) [0.0]
 static double GrackleTest_MFrac_DII;          // DII mass fraction      (GRACKLE_PRIMORDIAL >= 3 only) [0.0]
 static double GrackleTest_MFrac_HDI;          // HDI mass fraction      (GRACKLE_PRIMORDIAL >= 3 only) [0.0]
+static double GrackleTest_DustToGasRatio;     // Dust-to-gas mass ratio (GRACKLE_DUST only)            [0.01]
 static double GrackleTest_HeatingRate;        // User-provided heating rate (in erg cm^-3 s^-1 n_H^-1) [0.0]
 static double GrackleTest_CoolingRate;        // User-provided cooling rate (in erg cm^-3 s^-1 n_H^-2) [0.0]
 static double GrackleTest_KCool;              // Cooling-rate coefficient k_cool (in Myr^-1) [1.0]
@@ -33,45 +33,7 @@ static double GrackleTest_logDens_Range;      // Range of log ( mass density )
 static double GrackleTest_logTemp_Min;        // Minimum log( temperature ) in the box
 static double GrackleTest_logTemp_Max;        // Maximum log( temperature ) in the box
 static double GrackleTest_logTemp_Range;      // Range of log ( temperature )
-
-
-
-//-------------------------------------------------------------------------------------------------------
-// Function    :  Mis_GetTimeStep_Dust
-// Description :  Estimate the user-defined timestep from the cooling time of a
-//                reference cell in the dust test problem.
-//
-// Note        :  1. This function computes the cooling time using Grackle .
-//                2. The reference cell is currently fixed at patch[0] on level 0,
-//                   with cell index [0][0][0].
-//                3. The returned timestep is a user-defined multiple of the absolute cooling time.
-//                4. The input arguments "lv" and "dTime_dt" are currently unused.
-//
-// Parameter   :  lv          : Refinement level (unused here)
-//                dTime_dt    : Default timestep (unused here)
-//
-// Return      :  User-defined timestep based on the cooling time
-//-------------------------------------------------------------------------------------------------------
-static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
-{
-   const double dt_grackle = Grackle_GetTimeStep_CoolingTime( lv );
-
-   int FluSg = amr->FluSg[0];
-   double Dens = amr->patch[FluSg][0][0]->fluid[DENS][0][0][0];
-   double Eint = amr->patch[FluSg][0][0]->fluid[ENGY][0][0][0];
-
-   // Estimate gas temperature.
-   const double sEint_cgs = Eint/Dens * SQR( UNIT_V );
-   const double MuEff = 0.6;
-   const double Tgas = ( GAMMA - 1.0 ) * MuEff * Const_mH / Const_kB * sEint_cgs;
-
-   const double cool_frac = ( Tgas > 3.0e5 ) ? 0.02 : 0.1;
-   const double cooling_time = dt_grackle / DT__GRACKLE_COOLING;
-
-   return cool_frac * cooling_time;
-
-} // FUNCTION : Mis_GetTimeStep_Dust
-
+// =======================================================================================
 
 
 //-------------------------------------------------------------------------------------------------------
@@ -681,6 +643,44 @@ void AddNewField_GrackleTest()
    if ( Idx_Dust  == Idx_Undefined )   Idx_Dust  = AddField( "Dust",     FIXUP_FLUX_YES, FIXUP_REST_YES, FLOOR_YES, NORMALIZE_NO, INTERP_FRAC_YES  );
 
 } // FUNCTION : AddNewField_GrackleTest
+
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Mis_GetTimeStep_Dust
+// Description :  Estimate the user-defined timestep from the cooling time of a
+//                reference cell in the dust test problem.
+//
+// Note        :  1. This function computes the cooling time using Grackle .
+//                2. The reference cell is currently fixed at patch[0] on level 0,
+//                   with cell index [0][0][0].
+//                3. The returned timestep is a user-defined multiple of the absolute cooling time.
+//                4. The input arguments "lv" and "dTime_dt" are currently unused.
+//
+// Parameter   :  lv          : Refinement level (unused here)
+//                dTime_dt    : Default timestep (unused here)
+//
+// Return      :  User-defined timestep based on the cooling time
+//-------------------------------------------------------------------------------------------------------
+static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
+{
+   const double dt_grackle = Grackle_GetTimeStep_CoolingTime( lv );
+
+   int FluSg = amr->FluSg[0];
+   double Dens = amr->patch[FluSg][0][0]->fluid[DENS][0][0][0];
+   double Eint = amr->patch[FluSg][0][0]->fluid[ENGY][0][0][0];
+
+   // Estimate gas temperature.
+   const double sEint_cgs = Eint/Dens * SQR( UNIT_V );
+   const double MuEff = 0.6;
+   const double Tgas = ( GAMMA - 1.0 ) * MuEff * Const_mH / Const_kB * sEint_cgs;
+
+   const double cool_frac = ( Tgas > 3.0e5 ) ? 0.02 : 0.1;
+   const double cooling_time = dt_grackle / DT__GRACKLE_COOLING;
+
+   return cool_frac * cooling_time;
+
+} // FUNCTION : Mis_GetTimeStep_Dust
 
 
 
