@@ -424,7 +424,7 @@ void SetParameter()
       if ( GRACKLE_PE_HEATING )
          Aux_Error( ERROR_INFO, "GRACKLE_PE_HEATING must be 0 for GrackleTest_DefaultTestMode = %d !!\n",
                     GrackleTest_DefaultTestMode );
-      
+
       GrackleTest_MassDensity_Min = 1*( Const_amu / CUBE(Const_cm) );  PRINT_RESET_PARA( GrackleTest_MassDensity_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_MassDensity_Max = 1*( Const_amu / CUBE(Const_cm) );  PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_TempOverMMW_Min = 1.0e+06/MOLECULAR_WEIGHT;          PRINT_RESET_PARA( GrackleTest_TempOverMMW_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
@@ -694,9 +694,9 @@ void AddNewField_GrackleTest()
 //                   --> Please ensure that everything here is thread-safe
 //                3. Returned rate should be in unit of erg s^-1 cm^-3
 //
-// Parameter   :  x/y/z : Target physical coordinates
-//                Time  : Target physical time
-//                n_H   : Hydrogen number density in units of cm^-3
+// Parameter   :  x/y/z     : Target physical coordinates
+//                Time      : Target physical time
+//                n_H       : Hydrogen number density in units of cm^-3
 //                sEint_Gas : Gas specific internal energy
 //
 // Return      :  volumetric_heating_rate
@@ -705,8 +705,8 @@ real_che Grackle_vHeatingRate_GrackleTest( const double x, const double y, const
 {
    if ( GrackleTest_DefaultTestMode == 5 )
    {
-      const real_che rho_cgs = n_H * Const_mH / GRACKLE_HYDROGEN_MFRAC; // n_H is in cm^-3 ,rho_cgs is in g cm^-3
-      const real_che sEint_cgs = sEint_Gas * SQR( UNIT_V ); // sEint_Gas is in code unit, sEint_cgs is in erg g^-1
+      const real_che rho_cgs   = n_H * Const_mH / GRACKLE_HYDROGEN_MFRAC; // n_H is in cm^-3 ,rho_cgs is in g cm^-3
+      const real_che sEint_cgs = sEint_Gas * SQR( UNIT_V );               // sEint_Gas is in code unit, sEint_cgs is in erg g^-1
 
       // Equivalent to edot_code = - GrackleTest_KCool * e_code * d_code
       const real_che volumetric_heating_rate = - GrackleTest_KCool / UNIT_T * sEint_cgs * rho_cgs;

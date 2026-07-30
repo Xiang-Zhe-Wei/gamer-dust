@@ -431,9 +431,9 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
 //                   --> Please ensure that everything here is thread-safe
 //                3. Returned rate should be in unit of erg s^-1 cm^-3
 //
-// Parameter   :  x/y/z : Target physical coordinates
-//                Time  : Target physical time
-//                n_H   : Hydrogen number density in units of cm^-3
+// Parameter   :  x/y/z     : Target physical coordinates
+//                Time      : Target physical time
+//                n_H       : Hydrogen number density in units of cm^-3
 //                sEint_Gas : Gas specific internal energy
 //
 // Return      :  volumetric_heating_rate
