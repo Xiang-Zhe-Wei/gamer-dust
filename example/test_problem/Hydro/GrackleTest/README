@@ -156,12 +156,14 @@ Note:
    - Before running mode 5, use `stop_dust_density.py` to estimate the required simulation end time.
    - Set the selected energy-decay coefficient `k` and gas density in the script.
    - The script reports the corresponding stopping time `t` in Myr.
-   (3) This choice directly affects the theoretical comparison curve, so please confirm the
-     Grackle `edot` setting before running these scripts.
-     For `dust_density.py` and `gas_temp.py`, the reference solution depends on how Grackle
-     defines the energy change rate `edot(t)`:
-   - If `edot(i) = 0`, the script will use the reference solution **edot_0**.
-   - If `edot(i) = -k * e(i,j,k) * d(i,j,k)`, the script will use the reference solution **edot_const**.
+   (3) Reference solutions for dust and gas temperature
+   - This choice directly affects the theoretical comparison curve, so please confirm the
+     Grackle energy-change setup before running these scripts.
+   - For the `exp_cooling` reference solution:
+      - Use `CloudyData_NoCooling_mu06.h5` as the Grackle Cloudy table.
+      - Set `GrackleTest_ExpCoolCoeff` to a positive value in `Input__TestProb`.
+      - The imposed volumetric energy-change rate is
+        `edot(i) = -k_cool * d(i,j,k) * e(i,j,k)`, where `k_cool = GrackleTest_ExpCoolCoeff`.
 
 First-time GRACKLE installation guide (on NTU clusters as an example):
 ========================================

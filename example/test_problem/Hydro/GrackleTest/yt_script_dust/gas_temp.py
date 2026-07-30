@@ -11,9 +11,6 @@ parser = argparse.ArgumentParser(description="Plot temperature evolution from GA
 parser.add_argument("-s", type=int, required=True, help="Starting index")
 parser.add_argument("-e", type=int, required=True, help="Ending index")
 parser.add_argument("-d", type=int, required=True, help="Index step")
-parser.add_argument("-option", type=str, required=True, choices=["edot_0", "edot_const"],
-                    help="Analytic cooling mode: edot_0 or edot_const")
-
 args = parser.parse_args()
 
 
@@ -25,17 +22,16 @@ PREFIX     = '../'
 MARKERSIZE = 5.0
 LINE_WIDTH = 1
 DPI        = 150
-K_MYR_INV  = 1
-T_COOL_MYR = 1.0 / K_MYR_INV
-
+K_MYR_INV  = 1.0
 print("k [Myr^-1] =", K_MYR_INV)
-print("t_cool [Myr] =", T_COOL_MYR)
+if K_MYR_INV != 0:
+    T_COOL_MYR = 1.0 / K_MYR_INV
+    print("t_cool [Myr] =", T_COOL_MYR)
 
 
 # Load data
 temp_all = []
 time_all = []
-
 for idx in range(args.s, args.e + 1, args.d):
     file_path = os.path.join(PREFIX, 'Data_%06d'%idx)
     if not os.path.isfile(file_path):
@@ -47,7 +43,10 @@ for idx in range(args.s, args.e + 1, args.d):
         time_all.append(time)
 
 time_all = np.array(time_all)
-time_cool = time_all / T_COOL_MYR
+if K_MYR_INV == 0:
+    time_cool = time_all
+else:
+    time_cool = time_all / T_COOL_MYR
 
 # Plot
 # --------------------------------------------
@@ -58,14 +57,11 @@ ax.set_title(FIG_NAME)
 ax.set_xlabel(r"$t/t_{\rm cool}$", fontsize="large")
 ax.plot(time_cool, temp_all, 'ro', lw=LINE_WIDTH, mec='none', ms=MARKERSIZE, label="Numerical")
 
-# Analytic solution
-if args.option == "edot_0":
-    T0 = float(temp_all[0])
+T0 = float(temp_all[0])
+if K_MYR_INV == 0:
     T_ref = np.full_like(time_all, T0, dtype=float)
     ax.plot(time_cool, T_ref, 'b--', label="Reference")
-
-elif args.option == "edot_const":
-    T0 = float(temp_all[0])
+else:
     T_ref = T0 * np.exp(-K_MYR_INV * time_all)
     ax.plot(time_cool, T_ref, 'b--', label="Reference")
 

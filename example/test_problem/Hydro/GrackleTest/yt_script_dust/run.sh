@@ -18,12 +18,7 @@ START=0
 END=75
 DELTA=1
 
-# use { edot_0, edot_const }
-EDOTMODE=edot_const   
-
 
 # ===== Run =====
-python3 dust_density.py  -option $EDOTMODE 
-python3 metal_density.py -s $START -e $END -d $DELTA
-python3 gas_density.py   -s $START -e $END -d $DELTA
-python3 gas_temp.py      -s $START -e $END -d $DELTA -option $EDOTMODE
+python3 dust_density.py
+python3 gas_temp.py -s $START -e $END -d $DELTA

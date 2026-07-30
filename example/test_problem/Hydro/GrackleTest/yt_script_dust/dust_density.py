@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 
 # load the command-line parameters
 parser = argparse.ArgumentParser(description="Dust dust_dens evolution plotter")
-parser.add_argument("-option", type=str, required=True, choices=["edot_0", "edot_const"], help="Reference option")
 args = parser.parse_args()
 
 # physical constants
@@ -60,10 +59,11 @@ mu_gra    = float(np.asarray(f["GridData/GrackleMu"]).ravel()[0])
 T0         = T_grackle * MU / mu_gra
 K_MYR      = 1.0
 k          = K_MYR / MYR_IN_S
-t_cool_myr = 1.0 / K_MYR
-
 print("k [Myr^-1] =", K_MYR)
-print("t_cool [Myr] =", t_cool_myr)
+if K_MYR != 0:
+    t_cool_myr = 1.0 / K_MYR
+    print("t_cool [Myr] =", t_cool_myr)
+
 
 def ecode_to_T(e_code):
     UNIT_V = UNIT_L / UNIT_T
@@ -123,7 +123,10 @@ dust_dens = dust_dens[uniq_idx]
 dust_dens_norm = dust_dens / dust_dens[0]
 
 # time normalized by cooling time
-time_cool = time / t_cool_myr
+if K_MYR == 0:
+    time_cool = time
+else:
+    time_cool = time / t_cool_myr
 
 
 # Plot
@@ -136,7 +139,7 @@ ax.plot(time_cool, dust_dens_norm, 'ro', lw=1, mec='none', ms=5.0, label='Numeri
 
 # Refenence solution
 rho_ref = None
-if args.option == "edot_0":
+if K_MYR == 0:
     gas_rho_cgs = gas_rho0_cgs
     const_1 = 0.17 * (A_UM / 0.1) * (1.0e-27 / gas_rho_cgs) * GYR_IN_S
     const_2 = (10**6.3 / T0)**OMEGA
@@ -145,8 +148,7 @@ if args.option == "edot_0":
     rho_ref = dust_rho0 * np.exp((-3/tsp_myr) * time)
     rho_ref_norm = rho_ref / rho_ref[0]
     ax.plot(time_cool, rho_ref_norm, 'b-', lw=1.5, label="Reference")
-
-elif args.option == "edot_const":
+else:
     t_span = (0, time[-1]*MYR_IN_S)
     t_eval = time * MYR_IN_S
     sol = solve_ivp(drho_dt, t_span, [dust_rho0], t_eval=t_eval, rtol=1e-10, atol=1e-14)
