@@ -1,9 +1,9 @@
 #include "GAMER.h"
 
-#ifdef SUPPORT_GRACKLE
+#ifdef SUPPORT_GSL
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_odeiv2.h>
-#endif
+#endif // #ifdef SUPPORT_GSL
 
 
 
@@ -509,7 +509,7 @@ void SetParameter()
       if ( GRACKLE_PE_HEATING )
          Aux_Error( ERROR_INFO, "GRACKLE_PE_HEATING must be 0 for GrackleTest_DefaultTestMode = %d !!\n",
                     GrackleTest_DefaultTestMode );
-      
+
       GrackleTest_MassDensity_Min = 1*( Const_amu / CUBE(Const_cm) );  PRINT_RESET_PARA( GrackleTest_MassDensity_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_MassDensity_Max = 1*( Const_amu / CUBE(Const_cm) );  PRINT_RESET_PARA( GrackleTest_MassDensity_Max, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_TempOverMMW_Min = 1.0e+06/MOLECULAR_WEIGHT;          PRINT_RESET_PARA( GrackleTest_TempOverMMW_Min, FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
@@ -802,7 +802,7 @@ void AddNewField_GrackleTest()
 //-------------------------------------------------------------------------------------------------------
 static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
 {
-   if(GrackleTest_ExpCoolCoeff == 0)
+   if ( GrackleTest_ExpCoolCoeff == 0 )
       return 0.1*Const_Myr/UNIT_T;
 
    if ( GrackleTest_DefaultTestMode != 5 )
@@ -820,7 +820,7 @@ static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
    const double Tgas = ( GAMMA - 1.0 ) * MuEff * Const_mH / Const_kB * sEint_cgs;
 
    const double cool_frac = ( Tgas > 3.0e5 ) ? 0.02 : 0.1;
-   const double cooling_time = dt_grackle / DT__GRACKLE_COOLING;
+   const double cooling_time = Grackle_GetTimeStep_CoolingTime( 0 ) / DT__GRACKLE_COOLING;
 
    return cool_frac * cooling_time;
 
@@ -849,11 +849,11 @@ real_che Grackle_vHeatingRate_GrackleTest( const double x, const double y, const
 {
    if ( GrackleTest_DefaultTestMode == 5 )
    {
-      const real_che rho_cgs = n_H * Const_mH / GRACKLE_HYDROGEN_MFRAC; // n_H is in cm^-3 ,rho_cgs is in g cm^-3
-      const real_che sEint_cgs = sEint_Gas * SQR( UNIT_V ); // sEint_Gas is in code unit, sEint_cgs is in erg g^-1
+      const real_che rho_cgs   = n_H * Const_mH / GRACKLE_HYDROGEN_MFRAC; // n_H is in cm^-3 ,rho_cgs is in g cm^-3
+      const real_che sEint_cgs = sEint_Gas * SQR( UNIT_V );               // sEint_Gas is in code unit, sEint_cgs is in erg g^-1
 
-      // Apply the user-defined exponential cooling term: 
-      // d(rho*e)/dt = -GrackleTest_ExpCoolCoeff * rho * e, where rho = rho_cgs and e = sEint_cgs
+//    apply the user-defined exponential cooling term:
+//    d(rho*e)/dt = -GrackleTest_ExpCoolCoeff * rho * e, where rho = rho_cgs and e = sEint_cgs
       const real_che volumetric_heating_rate = - GrackleTest_ExpCoolCoeff / UNIT_T * sEint_cgs * rho_cgs;
       return volumetric_heating_rate;
    }
@@ -947,7 +947,7 @@ void Init_TestProb_Hydro_GrackleTest()
    Init_Field_User_Ptr           = AddNewField_GrackleTest;
    Grackle_vHeatingRate_User_Ptr = Grackle_vHeatingRate_GrackleTest;
    Grackle_tempFloor_User_Ptr    = Grackle_tempFloor_GrackleTest;
-   Mis_GetTimeStep_User_Ptr = Mis_GetTimeStep_Dust;
+   Mis_GetTimeStep_User_Ptr      = Mis_GetTimeStep_Dust;
 
 #  ifdef SUPPORT_HDF5
    Output_HDF5_InputTest_Ptr     = LoadInputTestProb;
