@@ -107,7 +107,7 @@ void Grackle_Prepare( const int lv, real_che h_Che_Array[], const int NPG, const
    }
 
    if ( GRACKLE_DUST ) {
-      if (  Idx_Dust  == Idx_Undefined  ||  CheIdx_Dust  == Idx_Undefined  )
+      if (  Idx_Dust == Idx_Undefined  ||  CheIdx_Dust == Idx_Undefined  )
          Aux_Error( ERROR_INFO, "[Che]Idx_Dust is undefined for \"GRACKLE_DUST\" !!\n" );
    }
 
