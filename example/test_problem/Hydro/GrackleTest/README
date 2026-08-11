@@ -154,16 +154,8 @@ Note:
 
 13. Dust sputtering analysis and stopping-time scripts
    (1) The folder `yt_script_dust/` contains scripts:
-   - `dust_density.py`, `dust_temp.py`, `gas_temp.py`, `metal_density.py`
-   - `stop_dust_density.py`
-   (2) Determining `END_T` for `GrackleTest_DefaultTestMode == 5`
-   - Before running mode 5, use `stop_dust_density.py` to estimate the required simulation end time.
-   - Set the selected energy-decay coefficient `k` and gas density in the script.
-   - The script reports the corresponding stopping time `t` in Myr.
-   (3) Reference solutions for dust and gas temperature
-   - This choice directly affects the theoretical comparison curve, so please confirm the
-     Grackle energy-change setup before running these scripts.
-   - For the `exp_cooling` reference solution:
+   - `dust_density.py`, `gas_temp.py`
+   (2) Reference solutions for dust and gas temperature
       - Use `CloudyData_NoCooling_mu06.h5` as the Grackle Cloudy table.
       - Set `GrackleTest_ExpCoolCoeff` to a positive value in `Input__TestProb`.
       - The imposed volumetric energy-change rate is

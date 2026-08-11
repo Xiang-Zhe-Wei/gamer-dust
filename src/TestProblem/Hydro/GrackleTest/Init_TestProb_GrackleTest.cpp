@@ -41,122 +41,9 @@ static double GrackleTest_logTemp_Range;      // Range of log ( temperature )
 // =======================================================================================
 
 
-// ============================================================
-// dust-sputtering saturation-time estimator (GrackleTest_DefaultTestMode == 5 only)
-// ============================================================
-#ifdef SUPPORT_GRACKLE
-static const double DustSat_GrainRadius_um = 0.1;     // grain radius (um)
-static const double DustSat_Omega          = 2.5;     // exponent in the sputtering-time formula
-static const double DustSat_Tol            = 1.0e-3;  // saturation tolerance
-static const double DustSat_NCoolingTime    = 5.0;     // safety cap (in units of t_cool) if no saturation is found
-
-
-static double DustSat_InternalEnergy( const double e0, const double k, const double t )
-{
-   return e0*exp( -k*t );
-} // FUNCTION : DustSat_InternalEnergy
-
-
-static double DustSat_SputteringTime( const double energy_cgs, const double gas_rho_cgs )
-{
-   const double Coeff1 = 0.17*( DustSat_GrainRadius_um/0.1 )*( 1.0e-27/gas_rho_cgs )*( 1.0e3*Const_Myr );
-   const double Coeff2 = pow(  ( pow(10.0, 6.3)*Const_kB )/( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH ),  DustSat_Omega  );
-   return Coeff1*( Coeff2/pow( energy_cgs, DustSat_Omega ) + 1.0 );
-} // FUNCTION : DustSat_SputteringTime
-
-
-struct DustSat_ODEParams
-{
-   double e0;             // initial specific internal energy (erg/g)
-   double k;              // energy decay rate (s^-1)
-   double gas_rho_cgs;    // gas mass density (g/cm^3)
-};
-
-
-static int DustSat_ODE_RHS( double t, const double y[], double dydt[], void *params )
-{
-   const DustSat_ODEParams *p = (const DustSat_ODEParams*) params;
-
-   const double energy = DustSat_InternalEnergy( p->e0, p->k, t );
-   const double tsp     = DustSat_SputteringTime( energy, p->gas_rho_cgs );
-
-   dydt[0] = -3.0/tsp * y[0];
-
-   return GSL_SUCCESS;
-} // FUNCTION : DustSat_ODE_RHS
-
-
-//-------------------------------------------------------------------------------------------------------
-// Function    :  DustSat_ComputeSaturationTime
-// Description :  Integrate the normalized dust-density ODE with GSL's rkf45 stepper and locate the
-//                saturation time defined by (rho(t) - rho_pred(t))/rho(0) < DustSat_Tol
-//
-// Parameter   :  T0_K        : initial gas temperature (K)
-//                gas_rho_cgs : gas mass density (g/cm^3)
-//                k_per_sec   : GrackleTest_ExpCoolCoeff converted to s^-1
-//
-// Return      :  saturation time in seconds (falls back to DustSat_NCoolingTime*t_cool if not found)
-//-------------------------------------------------------------------------------------------------------
-static double DustSat_ComputeSaturationTime( const double T0_K, const double gas_rho_cgs, const double k_per_sec )
-{
-
-   const double e0          = Const_kB*T0_K / ( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH );  // specific internal energy (erg/g)
-   const double t_cool_sec  = 1.0/k_per_sec;
-   const double t_max_sec   = DustSat_NCoolingTime*t_cool_sec;
-   const double dt_check    = t_cool_sec/200.0;   // resolution for evaluating the saturation criterion
-
-   DustSat_ODEParams params = { e0, k_per_sec, gas_rho_cgs };
-
-   gsl_odeiv2_system sys = { DustSat_ODE_RHS, NULL, 1, &params };
-
-   gsl_odeiv2_driver *driver = gsl_odeiv2_driver_alloc_y_new( &sys, gsl_odeiv2_step_rkf45, 1.0e-3*t_cool_sec, 1.0e-10, 1.0e-14 );
-
-   double t          = 0.0;
-   double y[1]       = { 1.0 };   // normalized dust density; y(0) = 1
-   double t_sat_sec  = -1.0;
-
-   while ( t < t_max_sec )
-   {
-      const double t_next = t + dt_check;
-      const int    status = gsl_odeiv2_driver_apply( driver, &t, t_next, y );
-
-      if ( status != GSL_SUCCESS )
-      {
-         Aux_Message( stderr, "WARNING : GSL ODE integration failed (status = %d) in DustSat_ComputeSaturationTime !!\n", status );
-         break;
-      }
-
-//    (rho_now - rho_pred)/rho_0 < DustSat_Tol, checked only after t > 0.5*t_cool
-      if ( t > 0.5*t_cool_sec )
-      {
-         const double energy_now = DustSat_InternalEnergy( e0, k_per_sec, t );
-         const double tsp_now    = DustSat_SputteringTime( energy_now, gas_rho_cgs );
-         const double tau_dust   = tsp_now/3.0;
-         const double rho_pred   = y[0]*exp( -t_cool_sec/tau_dust );
-         const double delta      = y[0] - rho_pred;   // already normalized since y(0) = 1
-
-         if ( delta < DustSat_Tol )
-         {
-            t_sat_sec = t;
-            break;
-         }
-      }
-   }
-
-   gsl_odeiv2_driver_free( driver );
-
-   if ( t_sat_sec < 0.0 )
-   {
-      if ( MPI_Rank == 0 )
-         Aux_Message( stderr, "WARNING : dust density does not saturate within %.1f cooling times "
-                               "--> fall back to END_T = %.1f cooling times !!\n", DustSat_NCoolingTime, DustSat_NCoolingTime );
-      t_sat_sec = t_max_sec;
-   }
-
-   return t_sat_sec;
-
-} // FUNCTION : DustSat_ComputeSaturationTime
-#endif // #ifdef SUPPORT_GRACKLE
+#ifdef SUPPORT_GSL
+static double DustSat_ComputeSaturationTime( const double T0_K, const double gas_rho_cgs, const double k_per_sec );
+#endif
 
 
 //-------------------------------------------------------------------------------------------------------
@@ -519,6 +406,12 @@ void SetParameter()
       GrackleTest_HeatingRate     = 0;                                 PRINT_RESET_PARA( GrackleTest_HeatingRate,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
       GrackleTest_CoolingRate     = 0;                                 PRINT_RESET_PARA( GrackleTest_CoolingRate,     FORMAT_REAL, "for GrackleTest_DefaultTestMode == 5" );
 
+      if ( END_STEP < 0 )
+      {
+         END_STEP = __INT_MAX__;
+         PRINT_RESET_PARA( END_STEP, FORMAT_LONG, "auto-set to a large value so that END_T controls the simulation end time for GrackleTest_DefaultTestMode == 5" );
+      }
+
       if ( END_T < 0.0 )
       {
          if ( GrackleTest_ExpCoolCoeff <= 0.0 )
@@ -533,6 +426,7 @@ void SetParameter()
          END_T = t_sat_sec / UNIT_T;
          PRINT_RESET_PARA( END_T, FORMAT_REAL, "auto-computed dust-sputtering saturation time for GrackleTest_DefaultTestMode == 5" );
       }
+      
    }
    else
    {
@@ -578,7 +472,7 @@ void SetParameter()
 // (3) reset other general-purpose parameters
 //     --> a helper macro PRINT_RESET_PARA is defined in Macro.h
    const long   End_Step_Default = 10;                     // 10 * DT__GRACKLE_COOLING * cooling time
-   const double End_T_Default    = 10*Const_Myr/UNIT_T;  // 10 Myr
+   const double End_T_Default    = 10.0*Const_Myr/UNIT_T;  // 10 Myr
 
    if ( END_STEP < 0 ) {
       END_STEP = End_Step_Default;
@@ -794,6 +688,9 @@ void AddNewField_GrackleTest()
 //                   with cell index [0][0][0].
 //                3. The returned timestep is a user-defined multiple of the absolute cooling time.
 //                4. The input arguments "lv" and "dTime_dt" are currently unused.
+//                5. The cooling time fraction ("cool_frac") is chosen to mimic the internal
+//                   time-step limit applied by Grackle for dust sputtering: 2% of the absolute
+//                   cooling time above 3.0e5 K, and 10% at lower temperatures (see README Note 12).
 //
 // Parameter   :  lv          : Refinement level (unused here)
 //                dTime_dt    : Default timestep (unused here)
@@ -802,13 +699,12 @@ void AddNewField_GrackleTest()
 //-------------------------------------------------------------------------------------------------------
 static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
 {
-   if ( GrackleTest_ExpCoolCoeff == 0 )
-      return 0.1*Const_Myr/UNIT_T;
-
    if ( GrackleTest_DefaultTestMode != 5 )
       return HUGE_NUMBER;
 
-   const double dt_grackle = Grackle_GetTimeStep_CoolingTime( lv );
+   if ( GrackleTest_ExpCoolCoeff == 0 )
+      return 0.1*Const_Myr/UNIT_T;
+
 
    int FluSg = amr->FluSg[0];
    double Dens = amr->patch[FluSg][0][0]->fluid[DENS][0][0][0];
@@ -838,9 +734,9 @@ static double Mis_GetTimeStep_Dust( const int lv, const double dTime_dt )
 //                   --> Please ensure that everything here is thread-safe
 //                3. Returned rate should be in unit of erg s^-1 cm^-3
 //
-// Parameter   :  x/y/z : Target physical coordinates
-//                Time  : Target physical time
-//                n_H   : Hydrogen number density in units of cm^-3
+// Parameter   :  x/y/z     : Target physical coordinates
+//                Time      : Target physical time
+//                n_H       : Hydrogen number density in units of cm^-3
 //                sEint_Gas : Gas specific internal energy
 //
 // Return      :  volumetric_heating_rate
@@ -915,6 +811,122 @@ real_che Grackle_tempFloor_GrackleTest( const double x, const double y, const do
 } // FUNCTION : Grackle_tempFloor_GrackleTest
 #endif // #if ( MODEL == HYDRO  &&  defined SUPPORT_GRACKLE )
 
+
+// ============================================================
+// dust-sputtering saturation-time estimator (GrackleTest_DefaultTestMode == 5 only)
+// ============================================================
+#ifdef SUPPORT_GRACKLE
+static const double DustSat_GrainRadius_um = 0.1;     // grain radius (um)
+static const double DustSat_Omega          = 2.5;     // exponent in the sputtering-time formula
+static const double DustSat_Tol            = 1.0e-3;  // saturation tolerance
+static const double DustSat_NCoolingTime    = 5.0;     // safety cap (in units of t_cool) if no saturation is found
+
+
+static double DustSat_InternalEnergy( const double e0, const double k, const double t )
+{
+   return e0*exp( -k*t );
+} // FUNCTION : DustSat_InternalEnergy
+
+
+static double DustSat_SputteringTime( const double energy_cgs, const double gas_rho_cgs )
+{
+   const double Coeff1 = 0.17*( DustSat_GrainRadius_um/0.1 )*( 1.0e-27/gas_rho_cgs )*( 1.0e3*Const_Myr );
+   const double Coeff2 = pow(  ( pow(10.0, 6.3)*Const_kB )/( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH ),  DustSat_Omega  );
+   return Coeff1*( Coeff2/pow( energy_cgs, DustSat_Omega ) + 1.0 );
+} // FUNCTION : DustSat_SputteringTime
+
+
+struct DustSat_ODEParams
+{
+   double e0;             // initial specific internal energy (erg/g)
+   double k;              // energy decay rate (s^-1)
+   double gas_rho_cgs;    // gas mass density (g/cm^3)
+};
+
+
+static int DustSat_ODE_RHS( double t, const double y[], double dydt[], void *params )
+{
+   const DustSat_ODEParams *p = (const DustSat_ODEParams*) params;
+
+   const double energy = DustSat_InternalEnergy( p->e0, p->k, t );
+   const double tsp     = DustSat_SputteringTime( energy, p->gas_rho_cgs );
+
+   dydt[0] = -3.0/tsp * y[0];
+
+   return GSL_SUCCESS;
+} // FUNCTION : DustSat_ODE_RHS
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  DustSat_ComputeSaturationTime
+// Description :  Integrate the normalized dust-density ODE with GSL's rkf45 stepper and locate the
+//                saturation time defined by |rho(t) - rho(t-dt_check)| / rho(t-dt_check) < DustSat_Tol
+//
+// Parameter   :  T0_K        : initial gas temperature (K)
+//                gas_rho_cgs : gas mass density (g/cm^3)
+//                k_per_sec   : GrackleTest_ExpCoolCoeff converted to s^-1
+//
+// Return      :  saturation time in seconds (falls back to DustSat_NCoolingTime*t_cool if not found)
+//-------------------------------------------------------------------------------------------------------
+static double DustSat_ComputeSaturationTime( const double T0_K, const double gas_rho_cgs, const double k_per_sec )
+{
+
+   const double e0          = Const_kB*T0_K / ( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH );  // specific internal energy (erg/g)
+   const double t_cool_sec  = 1.0/k_per_sec;
+   const double t_max_sec   = DustSat_NCoolingTime*t_cool_sec;
+   const double dt_check    = t_cool_sec/200.0;   // resolution for evaluating the saturation criterion
+
+   DustSat_ODEParams params = { e0, k_per_sec, gas_rho_cgs };
+
+   gsl_odeiv2_system sys = { DustSat_ODE_RHS, NULL, 1, &params };
+
+   gsl_odeiv2_driver *driver = gsl_odeiv2_driver_alloc_y_new( &sys, gsl_odeiv2_step_rkf45, 1.0e-3*t_cool_sec, 1.0e-10, 1.0e-14 );
+
+   double t          = 0.0;
+   double y[1]       = { 1.0 };   // normalized dust density; y(0) = 1
+   double y_prev     = 1.0;       // dust density at the previous step
+   double t_sat_sec  = -1.0;
+
+   while ( t < t_max_sec )
+   {
+      const double t_next = t + dt_check;
+      const int    status = gsl_odeiv2_driver_apply( driver, &t, t_next, y );
+
+      if ( status != GSL_SUCCESS )
+      {
+         Aux_Message( stderr, "WARNING : GSL ODE integration failed (status = %d) in DustSat_ComputeSaturationTime !!\n", status );
+         break;
+      }
+
+//    (rho_now - rho_prev)/rho_prev < DustSat_Tol, checked only after t > 0.5*t_cool
+      if ( t > 0.5*t_cool_sec )
+      {
+         const double delta = fabs( y[0] - y_prev ) / y_prev;
+
+         if ( delta < DustSat_Tol )
+         {
+            t_sat_sec = t;
+            break;
+         }
+      }
+
+      y_prev = y[0];
+   }
+
+   gsl_odeiv2_driver_free( driver );
+
+   if ( t_sat_sec < 0.0 )
+   {
+      if ( MPI_Rank == 0 )
+         Aux_Message( stderr, "WARNING : dust density does not saturate within %.1f cooling times "
+                               "--> fall back to END_T = %.1f cooling times !!\n", DustSat_NCoolingTime, DustSat_NCoolingTime );
+      t_sat_sec = t_max_sec;
+   }
+
+   return t_sat_sec;
+
+} // FUNCTION : DustSat_ComputeSaturationTime
+#endif // #ifdef SUPPORT_GRACKLE
 
 
 //-------------------------------------------------------------------------------------------------------

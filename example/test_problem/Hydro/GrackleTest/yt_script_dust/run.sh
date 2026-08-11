@@ -15,7 +15,7 @@ fi
 
 # ===== Parameters Setting =====
 START=0
-END=75
+END=62
 DELTA=1
 
 
