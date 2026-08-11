@@ -29,6 +29,8 @@ int CheIdx_sHeatingRate = Idx_Undefined;
 int CheIdx_tempFloor    = Idx_Undefined;
 
 
+
+
 //-------------------------------------------------------------------------------------------------------
 // Function    :  Init_MemAllocate_Grackle
 // Description :  Allocate the CPU memory for the Grackle solver
