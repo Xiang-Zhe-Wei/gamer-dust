@@ -1,5 +1,5 @@
 # problem-specific runtime parameters
-GrackleTest_DefaultTestMode         5          # Default test mode (0=none, >=1: see README) [0]
+GrackleTest_DefaultTestMode         0          # Default test mode (0=none, >=1: see README) [0]
 GrackleTest_MassDensity_Min         1.0e-29    # Minimum total mass density in the box (in g cm^-3) [1.0e-29]
 GrackleTest_MassDensity_Max         1.0e-21    # Maximum total mass density in the box (in g cm^-3) [1.0e-21]
 GrackleTest_TempOverMMW_Min         1.0e+00    # Minimum temperature over mean molecular weight (T/mu) in the box (in K) [1.0e+00]

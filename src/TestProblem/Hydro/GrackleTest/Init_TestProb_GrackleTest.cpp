@@ -809,13 +809,13 @@ real_che Grackle_tempFloor_GrackleTest( const double x, const double y, const do
    return temperature_floor;
 
 } // FUNCTION : Grackle_tempFloor_GrackleTest
-#endif // #if ( MODEL == HYDRO  &&  defined SUPPORT_GRACKLE )
+
 
 
 // ============================================================
 // dust-sputtering saturation-time estimator (GrackleTest_DefaultTestMode == 5 only)
 // ============================================================
-#ifdef SUPPORT_GRACKLE
+#ifdef SUPPORT_GSL
 static const double DustSat_GrainRadius_um = 0.1;     // grain radius (um)
 static const double DustSat_Omega          = 2.5;     // exponent in the sputtering-time formula
 static const double DustSat_Tol            = 1.0e-3;  // saturation tolerance
@@ -889,9 +889,13 @@ static double DustSat_ComputeSaturationTime( const double T0_K, const double gas
 
    while ( t < t_max_sec )
    {
-      const double t_next = t + dt_check;
-      const int    status = gsl_odeiv2_driver_apply( driver, &t, t_next, y );
+      const double energy_now = DustSat_InternalEnergy( e0, k_per_sec, t );
+      const double Tgas_now   = energy_now * (GAMMA-1.0) * MOLECULAR_WEIGHT / Const_kB * Const_mH;
+      const double cool_frac  = ( Tgas_now > 3.0e5 ) ? 0.02 : 0.1;
+      const double dt_step    = cool_frac * t_cool_sec;
 
+      const double t_next = t + dt_step;
+      const int status = gsl_odeiv2_driver_apply( driver, &t, t_next, y );
       if ( status != GSL_SUCCESS )
       {
          Aux_Message( stderr, "WARNING : GSL ODE integration failed (status = %d) in DustSat_ComputeSaturationTime !!\n", status );
@@ -902,7 +906,6 @@ static double DustSat_ComputeSaturationTime( const double T0_K, const double gas
       if ( t > 0.5*t_cool_sec )
       {
          const double delta = fabs( y[0] - y_prev ) / y_prev;
-
          if ( delta < DustSat_Tol )
          {
             t_sat_sec = t;
@@ -927,7 +930,7 @@ static double DustSat_ComputeSaturationTime( const double T0_K, const double gas
 
 } // FUNCTION : DustSat_ComputeSaturationTime
 #endif // #ifdef SUPPORT_GRACKLE
-
+#endif // #if ( MODEL == HYDRO  &&  defined SUPPORT_GRACKLE )
 
 //-------------------------------------------------------------------------------------------------------
 // Function    :  Init_TestProb_Hydro_GrackleTest
