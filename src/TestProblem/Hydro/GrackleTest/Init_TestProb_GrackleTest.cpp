@@ -819,7 +819,7 @@ real_che Grackle_tempFloor_GrackleTest( const double x, const double y, const do
 static const double DustSat_GrainRadius_um = 0.1;     // grain radius (um)
 static const double DustSat_Omega          = 2.5;     // exponent in the sputtering-time formula
 static const double DustSat_Tol            = 1.0e-3;  // saturation tolerance
-static const double DustSat_NCoolingTime    = 5.0;     // safety cap (in units of t_cool) if no saturation is found
+static const double DustSat_NCoolingTime   = 5.0;     // safety cap (in units of t_cool) if no saturation is found
 
 
 static double DustSat_InternalEnergy( const double e0, const double k, const double t )
@@ -827,12 +827,16 @@ static double DustSat_InternalEnergy( const double e0, const double k, const dou
    return e0*exp( -k*t );
 } // FUNCTION : DustSat_InternalEnergy
 
-
+//-------------------------------------------------------------------------------------------------------
+// Function    :  DustSat_SputteringTime
+// Description :  Dust sputtering timescale formula, as given in Eq. (6) of
+//                Richie et al. 2024, ApJ, 974, 81 ("Dust Survival in Galactic Winds")
+//-------------------------------------------------------------------------------------------------------
 static double DustSat_SputteringTime( const double energy_cgs, const double gas_rho_cgs )
 {
    const double Coeff1 = 0.17*( DustSat_GrainRadius_um/0.1 )*( 1.0e-27/gas_rho_cgs )*( 1.0e3*Const_Myr );
-   const double Coeff2 = pow(  ( pow(10.0, 6.3)*Const_kB )/( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH ),  DustSat_Omega  );
-   return Coeff1*( Coeff2/pow( energy_cgs, DustSat_Omega ) + 1.0 );
+   const double Coeff2 = pow( ( pow(10.0, 6.3)*Const_kB )/( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH * energy_cgs ), DustSat_Omega );
+return Coeff1*( Coeff2 + 1.0 );
 } // FUNCTION : DustSat_SputteringTime
 
 
@@ -844,6 +848,11 @@ struct DustSat_ODEParams
 };
 
 
+//-------------------------------------------------------------------------------------------------------
+// Function    :  DustSat_ODE_RHS
+// Description :  Dust sputtering timescale formula, as given in Eq. (3) of
+//                Richie et al. 2024, ApJ, 974, 81 ("Dust Survival in Galactic Winds")
+//-------------------------------------------------------------------------------------------------------
 static int DustSat_ODE_RHS( double t, const double y[], double dydt[], void *params )
 {
    const DustSat_ODEParams *p = (const DustSat_ODEParams*) params;
@@ -860,7 +869,12 @@ static int DustSat_ODE_RHS( double t, const double y[], double dydt[], void *par
 //-------------------------------------------------------------------------------------------------------
 // Function    :  DustSat_ComputeSaturationTime
 // Description :  Integrate the normalized dust-density ODE with GSL's rkf45 stepper and locate the
-//                saturation time defined by |rho(t) - rho(t-dt_check)| / rho(t-dt_check) < DustSat_Tol
+//                saturation time defined by |rho(t) - rho(t-dt_step)| / rho(t-dt_step) < DustSat_Tol
+//
+//                The step size dt_step mimics the timestep criterion used by Mis_GetTimeStep_Dust()
+//                in the actual simulation: 2% of the cooling time above 3.0e5 K and 10% at lower
+//                temperatures. This ensures the estimated saturation time reflects the timestep
+//                granularity that Grackle will actually use during the real run.
 //
 // Parameter   :  T0_K        : initial gas temperature (K)
 //                gas_rho_cgs : gas mass density (g/cm^3)
@@ -874,7 +888,6 @@ static double DustSat_ComputeSaturationTime( const double T0_K, const double gas
    const double e0          = Const_kB*T0_K / ( (GAMMA-1.0)*MOLECULAR_WEIGHT*Const_mH );  // specific internal energy (erg/g)
    const double t_cool_sec  = 1.0/k_per_sec;
    const double t_max_sec   = DustSat_NCoolingTime*t_cool_sec;
-   const double dt_check    = t_cool_sec/200.0;   // resolution for evaluating the saturation criterion
 
    DustSat_ODEParams params = { e0, k_per_sec, gas_rho_cgs };
 
@@ -929,7 +942,7 @@ static double DustSat_ComputeSaturationTime( const double T0_K, const double gas
    return t_sat_sec;
 
 } // FUNCTION : DustSat_ComputeSaturationTime
-#endif // #ifdef SUPPORT_GRACKLE
+#endif // #ifdef SUPPORT_GSL
 #endif // #if ( MODEL == HYDRO  &&  defined SUPPORT_GRACKLE )
 
 //-------------------------------------------------------------------------------------------------------
